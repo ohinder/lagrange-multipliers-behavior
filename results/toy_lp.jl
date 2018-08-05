@@ -51,7 +51,7 @@ end
 
 title("IPOPT")
 ax = gca()
-ax[:set_ylim](ylim)
+ax[:set_ylim](ylims)
 xlabel("iteration")
 ylabel("maximum dual variable")
 

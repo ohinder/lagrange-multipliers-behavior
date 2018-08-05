@@ -1,11 +1,11 @@
 using JuMP, MAT, Ipopt, MathProgBase, NLPModels, CUTEst
 using Gurobi # to check if LP is feasible or not
 #using OnePhase
-include("../../one-phase-2.0/src/OnePhase.jl")
+include("../../../one-phase-2.0/src/OnePhase.jl")
 include("lp.jl")
 include("plot.jl")
 
-function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::AbstractNLPModel, inner)
+function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::AbstractNLPModel, inner, t::Int64)
     x = inner.x
     mult_x_L = inner.mult_x_L
     mult_x_U = inner.mult_x_U
@@ -35,8 +35,6 @@ function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::A
 
     fval = obj(nlp,x)
 
-    t = length(hist)
-
     this_it = OnePhase.generic_alg_history(t,fval,norm_grad_lag,comp,con_vio,y_norm,x_norm)
 
     push!(hist,this_it)
@@ -58,8 +56,8 @@ function IPOPT_solver_history(model_builder::Function, solver::IpoptSolver)
         setsolver(m, tmp_solver)
         status = solve(m)
         inner = m.internalModel.inner
-        add_solver_results!(hist, nlp, inner)
-        if status == :Optimal
+        add_solver_results!(hist, nlp, inner, k)
+        if status != :UserLimit
             break
         end
     end
@@ -67,28 +65,40 @@ function IPOPT_solver_history(model_builder::Function, solver::IpoptSolver)
     return hist
 end
 
-function IPOPT_solver_history(nlp::CUTEstModel, max_it::Int64; bound_relax_factor::Float64=0.0,tol::Float64=1e-8)
-    optimal_it = max_it
-    for j = 1:max_it
-        mp = NLPtoMPB(nlp, IPOPT_k_its_normal(j,bound_relax_factor,tol));
-        status = MathProgBase.optimize!(mp)
-        @show status
+function IPOPT_solver_history(nlp::NLPModels.AbstractNLPModel, solver::IpoptSolver; mod=1::Int64) #max_it::Int64; bound_relax_factor::Float64=0.0,tol::Float64=1e-8)
+    opts = Dict(solver.options);
+    tmp_opts = deepcopy(opts)
 
-        if status != -1
-            optimal_it = j
-            break
+    hist = Array{OnePhase.generic_alg_history,1}()
+    for k = 0:opts[:max_iter]
+        if k % mod == 0
+            tmp_opts[:max_iter] = k
+            opts_to_pass = [(val,key) for (val,key) in tmp_opts]
+            tmp_solver = IpoptSolver(opts_to_pass)
+            mp = NLPtoMPB(nlp,tmp_solver)
+            status = MathProgBase.optimize!(mp)
+            inner = mp.inner
+            add_solver_results!(hist, nlp, inner, k)
+            if status != -1
+                break
+            end
         end
     end
 
-    @show optimal_it
-
-    hist = Array{OnePhase.generic_alg_history,1}()
-    for k = 1:optimal_it
-        mp = NLPtoMPB(nlp, IPOPT_k_its_normal(k,bound_relax_factor,tol));
-        status = MathProgBase.optimize!(mp)
-
-        add_solver_results!(hist, nlp, mp.inner)
-    end
-
     return hist
+end
+
+function Record_solver_histories(solver_dic::Dict, build_nlp::Function)
+    hist_dic = Dict{String,Array{OnePhase.abstract_alg_history,1}}()
+    for (solver_name,solver) in solver_dic
+        if isa(solver,IpoptSolver)
+            hist_dic[solver_name] = IPOPT_solver_history(build_nlp, solver);
+        else
+            m = build_nlp()
+            setsolver(m,solver)
+            solve(m)
+            hist_dic[solver_name] = OnePhase.major_its_only(m.internalModel.inner.hist);
+        end
+    end
+    return hist_dic
 end
