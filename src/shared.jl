@@ -1,9 +1,23 @@
+println("loading libaries and functions ...")
+
 using JuMP, MAT, Ipopt, MathProgBase, NLPModels, CUTEst
 using Gurobi # to check if LP is feasible or not
+using Suppressor # to stop IPOPT showing a million warnings
+
 #using OnePhase
 include("../../../one-phase-2.0/src/OnePhase.jl")
 include("lp.jl")
 include("plot.jl")
+
+function build_solver(solver_info::Dict)
+    if solver_info["solver"] == :OnePhase
+        return OnePhase.OnePhaseSolver(solver_info["options"])
+    elseif solver_info["solver"] == :Ipopt
+        return IpoptSolver(solver_info["options"])
+    else
+        error("Unknown solver.")
+    end
+end
 
 function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::AbstractNLPModel, inner, t::Int64)
     x = inner.x
@@ -35,26 +49,29 @@ function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::A
 
     fval = obj(nlp,x)
 
-    this_it = OnePhase.generic_alg_history(t,fval,norm_grad_lag,comp,con_vio,y_norm,x_norm)
+    this_it = OnePhase.generic_alg_history(t,fval,norm_grad_lag,comp,con_vio,con_vio,y_norm,x_norm)
 
     push!(hist,this_it)
 end
 
-function IPOPT_solver_history(model_builder::Function, solver::IpoptSolver)
-    opts = Dict(solver.options);
-    tmp_opts = deepcopy(opts)
+function DictToKeyValue(dic::Dict)
+    return [(val,key) for (val,key) in dic]
+end
 
+function IPOPT_solver_history(model_builder::Function, solver_info::Dict; print_level=0::Int64)
     temp_m = model_builder()
     nlp = NLPModels.MathProgNLPModel(temp_m)
 
     hist = Array{OnePhase.generic_alg_history,1}()
+    opts = solver_info["options"]
     for k = 0:opts[:max_iter]
         m = model_builder()
-        tmp_opts[:max_iter] = k
-        opts_to_pass = [(val,key) for (val,key) in tmp_opts]
-        tmp_solver = IpoptSolver(opts_to_pass)
+        new_opts = deepcopy(opts)
+        new_opts[:max_iter] = k
+        new_opts[:print_level] = print_level
+        tmp_solver = IpoptSolver(DictToKeyValue(new_opts))
         setsolver(m, tmp_solver)
-        status = solve(m)
+        status = @suppress_err solve(m)
         inner = m.internalModel.inner
         add_solver_results!(hist, nlp, inner, k)
         if status != :UserLimit
@@ -62,21 +79,28 @@ function IPOPT_solver_history(model_builder::Function, solver::IpoptSolver)
         end
     end
 
+    if opts[:print_level] > print_level
+        # run IPOPT as normal and print output
+        m = model_builder()
+        tmp_solver = IpoptSolver(DictToKeyValue(opts))
+        setsolver(m, tmp_solver)
+        status = solve(m)
+    end
+
     return hist
 end
 
-function IPOPT_solver_history(nlp::NLPModels.AbstractNLPModel, solver::IpoptSolver; mod=1::Int64) #max_it::Int64; bound_relax_factor::Float64=0.0,tol::Float64=1e-8)
-    opts = Dict(solver.options);
-    tmp_opts = deepcopy(opts)
-
+function IPOPT_solver_history(nlp::NLPModels.AbstractNLPModel, solver_info::Dict; print_level=0::Int64) #max_it::Int64; bound_relax_factor::Float64=0.0,tol::Float64=1e-8)
     hist = Array{OnePhase.generic_alg_history,1}()
+    opts = solver_info["options"]
     for k = 0:opts[:max_iter]
         if k % mod == 0
-            tmp_opts[:max_iter] = k
-            opts_to_pass = [(val,key) for (val,key) in tmp_opts]
-            tmp_solver = IpoptSolver(opts_to_pass)
+            new_opts = deepcopy(opts)
+            new_opts[:max_iter] = k
+            new_opts[:print_level] = print_level
+            tmp_solver = IpoptSolver(DictToKeyValue(new_opts))
             mp = NLPtoMPB(nlp,tmp_solver)
-            status = MathProgBase.optimize!(mp)
+            status = @suppress_err MathProgBase.optimize!(mp)
             inner = mp.inner
             add_solver_results!(hist, nlp, inner, k)
             if status != -1
@@ -90,14 +114,17 @@ end
 
 function Record_solver_histories(solver_dic::Dict, build_nlp::Function)
     hist_dic = Dict{String,Array{OnePhase.abstract_alg_history,1}}()
-    for (solver_name,solver) in solver_dic
-        if isa(solver,IpoptSolver)
-            hist_dic[solver_name] = IPOPT_solver_history(build_nlp, solver);
-        else
+    for (solver_name,solver_info) in solver_dic
+        if solver_info["solver"] == :Ipopt
+            hist_dic[solver_name] = IPOPT_solver_history(build_nlp, solver_info);
+        elseif solver_info["solver"] == :OnePhase
             m = build_nlp()
+            solver = build_solver(solver_info)
             setsolver(m,solver)
             solve(m)
             hist_dic[solver_name] = OnePhase.major_its_only(m.internalModel.inner.hist);
+        else
+            error("Unknown solver.")
         end
     end
     return hist_dic

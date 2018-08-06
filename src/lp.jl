@@ -40,16 +40,18 @@ end
 function load_netlib(num_nz::Int64, dir::String)
     file_list = readdir("../netlib")
     problem_list = Array{String,1}()
+    println("loading netlib: ")
     for file_name in file_list
         if file_name[(end-3):end] == ".mat" #&& filesize("netlib/$file_name") < file_size
           problem_name = file_name[1:(end-4)]
-          println("loading...", problem_name)
+          print(problem_name, ", ")
           LP = read_lp(problem_name, dir)
           if nnz(LP.A) <= num_nz
             push!(problem_list, problem_name)
           end
         end
     end
+    println("")
 
     return problem_list
 end
@@ -107,7 +109,7 @@ function lp_feasible(LP::LP_problem_data, tol::Float64)
     mod = build_LP_model(LP_tmp)
     setsolver(mod, GurobiSolver(FeasibilityTol=1e-9,BarHomogeneous=1,OutputFlag=0))
     JuMP.build(mod)
-    status = solve(mod)
+    status = @suppress_err solve(mod)
     return status == :Optimal
 end
 
@@ -160,17 +162,21 @@ end
 
 function compute_solver_status(solver_dic::Dict,problem_list::Array{String,1})
     solver_status_dic = Dict{String,Dict{String,Symbol}}()
-    for (solver_name,solver) in solver_dic
+
+    for (solver_name,solver_info) in solver_dic
+        print("Solving using $solver_name ... ")
         solver_status_dic[solver_name] = Dict{String,Symbol}()
 
         for problem_name in problem_list
-          println("Solving $problem_name")
+          print(problem_name, ", ")
           LP = read_lp(problem_name,"../netlib/")
           m = build_LP_model_as_NLP(LP)
+          solver = build_solver(solver_info)
           setsolver(m, solver)
           status = solve(m)
           solver_status_dic[solver_name][problem_name] = status
         end
+        println("")
     end
 
     return solver_status_dic
@@ -205,17 +211,20 @@ end
 function get_maximum_duals_at_last_iterate(solver_dic::Dict, problem_list::Array{String,1})
     # generate distribution on the **maximum** dual multiplier values at the **last iterate**
     solver_duals = Dict{String,Dict{String,Float64}}()
-    for (solver_name,solver) in solver_dic
+    for (solver_name,solver_info) in solver_dic
+        print("Solving using $solver_name ... ")
         solver_duals[solver_name] = Dict{String,Float64}()
 
         for problem_name in problem_list
-          println("Solving $problem_name")
+          print(problem_name,", ")
           LP = read_lp(problem_name,"../netlib/")
           m = build_LP_model_as_NLP(LP)
+          solver = build_solver(solver_info)
           setsolver(m, solver)
           status = solve(m)
           solver_duals[solver_name][problem_name] = get_mult_inf_norm(m.internalModel.inner)
         end
+        println("")
     end
 
     return solver_duals
@@ -224,19 +233,21 @@ end
 function get_maximum_duals_all_iterates(solver_dic::Dict, problem_list::Array{String,1}; frac::Float64=1.0)
     # generate distribution on the **maximum** dual multiplier values at the **last iterate**
     solver_duals = Dict{String,Dict{String,Float64}}()
-    for (solver_name,solver) in solver_dic
-        solver_duals[solver_name] = Dict{String,Float64}()
 
+    for (solver_name,solver_info) in solver_dic
+        solver_duals[solver_name] = Dict{String,Float64}()
+        print("Solving using $solver_name ... ")
         for problem_name in problem_list
-          println("Solving $problem_name")
+          print(problem_name, ", ")
           LP = read_lp(problem_name,"../netlib/")
 
-          if isa(solver, IpoptSolver)
+          if solver_info["solver"] == :Ipopt
               build_LP() = build_LP_model_as_NLP(LP)
-              hist = IPOPT_solver_history(build_LP, solver)
-          elseif solver_name == "One Phase"
+              hist = IPOPT_solver_history(build_LP, solver_info)
+          elseif solver_info["solver"] == :OnePhase
                 m = build_LP_model_as_NLP(LP)
-                setsolver(m,OnePhase.OnePhaseSolver(output_level=2))
+                solver = build_solver(solver_info)
+                setsolver(m, solver)
                 solve(m)
 
                 hist = OnePhase.major_its_only(m.internalModel.inner.hist)
@@ -250,11 +261,12 @@ function get_maximum_duals_all_iterates(solver_dic::Dict, problem_list::Array{St
           elseif frac >= 0.0 && frac < 1.0
               j = round(Int,ceil(length(vals) * (1.0-frac)))
           else
-              error("")
+              error("Invalid value for variable 'frac' of $frac")
           end
           slice = vals[j:end]
           solver_duals[solver_name][problem_name] = maximum(slice)
         end
+        println("")
     end
 
     return solver_duals

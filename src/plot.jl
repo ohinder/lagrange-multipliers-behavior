@@ -43,8 +43,8 @@ function Plot_trajectory(hist; ylim=false)
     assert(length(hist) > 0)
 
     its = OnePhase.get_col(hist,:t)
-    dual = OnePhase.get_col(hist,:norm_grad_lag)
-    primal = OnePhase.get_col(hist,:con_vio)
+    dual_res = OnePhase.get_col(hist,:norm_grad_lag)
+    primal_res = OnePhase.get_col(hist,:primal_residual) # ????
     y_norm = OnePhase.get_col(hist,:y_norm)
     comp = OnePhase.get_col(hist,:comp)
 
@@ -53,8 +53,8 @@ function Plot_trajectory(hist; ylim=false)
     label = ["dual residual" "primal residual" "dual variable" "complementarity"]
 
     y_dic = Dict(
-        "dual residual" => dual,
-        "primal residual" => primal,
+        "dual residual" => dual_res,
+        "primal residual" => primal_res,
         "dual variable" => y_norm,
         "complementarity" => comp
     )
