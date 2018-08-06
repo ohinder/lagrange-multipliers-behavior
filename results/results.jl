@@ -1,7 +1,16 @@
-# this file reproduces all the results in the paper
+################################################################################################
+#### This file reproduces all the results in the paper:
+#### On the behavior of Lagrange multipliers in convex and non-convex infeasible interior point methods
+#### Gabriel Haeser, Oliver Hinder, Yinyu Ye.
+#### https://arxiv.org/pdf/1707.07327.pdf
+################################################################################################
+
 include("../src/shared.jl")
 
-#err_str = @capture_err begin
+# check that appropriate folders exist
+if !isdir("figures/") mkdir("figures/") end
+if !isdir("tables/") mkdir("tables/") end
+
 # keep the same for all solvers
 max_it = 100;
 tol = 1e-6;
@@ -10,17 +19,19 @@ output_level=0
 println("Solver parameters (shared by all solvers):")
 @show max_it, tol, output_level
 
-# define solvers
+# define options for IPOPT
+# see https://www.coin-or.org/Ipopt/documentation/node40.html
 options_Ipopt_with_perturb = Dict(
-    :tol=>tol,
+    :tol=>tol, # termination tolerance
     :print_level=>2+output_level,
     :max_iter => max_it,
-    # turn off acceptable iterations in IPOPT
+    # turn off `acceptable' termination criteron in IPOPT
     :acceptable_iter=>99999,:acceptable_tol=>tol,:acceptable_compl_inf_tol=>tol,:acceptable_constr_viol_tol=>tol
 )
 options_Ipopt_without_perturb = deepcopy(options_Ipopt_with_perturb)
-options_Ipopt_without_perturb[:bound_relax_factor] = 0.0
+options_Ipopt_without_perturb[:bound_relax_factor] = 0.0 # this turns off perturbations of the constraints
 
+# define solvers and options in a dictionary
 solver_dic = Dict(
 "One Phase" => Dict(
     "solver" => :OnePhase,
@@ -54,12 +65,7 @@ println("***********************************************************************
 println("")
 include("dual-multipliers.jl")
 
-
-########################
-## Nonconvex problems ##
-########################
-
-# For the last few figures lets have a look at the output
+# For the remainder of the figures lets have a look at the output
 solver_dic["One Phase"]["options"][:output_level] = 2;
 solver_dic["Ipopt w/o perturb"]["options"][:print_level] = 5;
 solver_dic["Ipopt w. perturb"]["options"][:print_level] = 5;
@@ -78,6 +84,10 @@ fig = figure("Trajectory $problem_name",figsize=(9,5))
 Plot_multiple_solver_dual_histories(hist_dic,ylims,display_order)
 PyPlot.savefig("figures/trajectory_$problem_name.pdf")
 PyPlot.close()
+
+########################
+## Nonconvex problems ##
+########################
 
 println("************************************************************************************")
 println("Computing Figure 4 (circle example) ")
