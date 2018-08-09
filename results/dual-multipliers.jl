@@ -1,4 +1,4 @@
-max_problem_size = 1000; # how big are the netlib problems we solve (make this small if its taking a long time)
+max_problem_size = 10000; # how big are the netlib problems we solve (make this small if its taking a long time)
 
 println("Largest netlib problem we are going to solve (number of nonzeros): $max_problem_size")
 println("")
@@ -49,7 +49,7 @@ PyPlot.close()
 
 Plot_duals(solver_duals_20_percent,line_style)
 legend()
-PyPlot.savefig("figures/dual_distribution_20%.pdf")
+PyPlot.savefig("figures/dual_distribution_20.pdf")
 PyPlot.close()
 
 function restrict_results(res::Dict{String,Dict{String,Float64}}, restricted_problem_list::Array{String,1})
@@ -65,13 +65,26 @@ end
 
 # effect is clearer when we look only at problems with no interior
 solver_duals_20_percent_no_int = restrict_results(solver_duals_20_percent,all_solvers_succeed_and_no_int)
-Plot_duals(solver_duals_20_percent_no_int,line_style)
-legend()
-PyPlot.savefig("figures/dual_distribution_20%_no_int.pdf")
-PyPlot.close()
+#legend()
+#PyPlot.savefig("figures/dual_distribution_20%_no_int.pdf")
+#PyPlot.close()
 
 solver_duals_20_percent_int = restrict_results(solver_duals_20_percent,all_solvers_succeed_and_int)
-Plot_duals(solver_duals_20_percent_int,line_style)
+
+# plot for paper
+ylims = [1.0,1e12]
+fig = figure("Dual multipliers",figsize=figsize)
+subplot(1,2,1)
+title("Problems with interior")
+Plot_duals(solver_duals_20_percent_int,line_style,ylim=ylims)
+ylabel("maximum dual variable")
 legend()
-PyPlot.savefig("figures/dual_distribution_20%_int.pdf")
+
+subplot(1,2,2)
+title("Problems with no interior")
+Plot_duals(solver_duals_20_percent_no_int,line_style,ylim=ylims)
+ax = gca()
+ax[:set_yticklabels]([])
+
+PyPlot.savefig("figures/dual_distribution_20_int_no_int.pdf")
 PyPlot.close()

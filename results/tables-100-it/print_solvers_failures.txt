@@ -1,0 +1,82 @@
+===== Which problems do the solvers fail on? ======
+==== Solver: Ipopt w/o perturb ======
+PEROLD UserLimit
+SCFXM3 UserLimit
+FFFFF800 UserLimit
+PILOT4 UserLimit
+SCAGR25 UserLimit
+SCAGR7 UserLimit
+BRANDY UserLimit
+GFRD-PNC UserLimit
+PILOT-WE UserLimit
+FINNIS UserLimit
+GANGES UserLimit
+SHELL UserLimit
+SHARE1B UserLimit
+STOCFOR2 UserLimit
+CAPRI UserLimit
+FIT1P UserLimit
+ISRAEL UserLimit
+GROW7 UserLimit
+BORE3D UserLimit
+GROW15 UserLimit
+AGG UserLimit
+AGG3 UserLimit
+VTP-BASE UserLimit
+SIERRA UserLimit
+SEBA UserLimit
+BNL1 UserLimit
+SCFXM1 UserLimit
+BOEING2 UserLimit
+SCFXM2 UserLimit
+GROW22 UserLimit
+BOEING1 UserLimit
+SCRS8 UserLimit
+total failures = 32
+==== Solver: Ipopt w. perturb ======
+PEROLD UserLimit
+SCFXM3 UserLimit
+FFFFF800 UserLimit
+PILOT4 UserLimit
+SCAGR25 UserLimit
+SCAGR7 UserLimit
+BRANDY UserLimit
+GFRD-PNC UserLimit
+PILOT-WE UserLimit
+FINNIS UserLimit
+GANGES UserLimit
+SHELL UserLimit
+SHARE1B UserLimit
+STOCFOR2 UserLimit
+CAPRI UserLimit
+FIT1P UserLimit
+ISRAEL UserLimit
+GROW7 UserLimit
+BORE3D UserLimit
+GROW15 UserLimit
+AGG UserLimit
+AGG3 UserLimit
+VTP-BASE UserLimit
+SIERRA UserLimit
+SEBA UserLimit
+BNL1 UserLimit
+SCFXM1 UserLimit
+BOEING2 UserLimit
+SCFXM2 UserLimit
+GROW22 UserLimit
+BOEING1 UserLimit
+SCRS8 UserLimit
+total failures = 32
+==== Solver: One Phase ======
+PEROLD UserLimit
+FFFFF800 UserLimit
+PILOT4 UserLimit
+AGG2 UserLimit
+PILOT-WE UserLimit
+GROW7 UserLimit
+GROW15 UserLimit
+AGG UserLimit
+VTP-BASE UserLimit
+ETAMACRO UserLimit
+GROW22 UserLimit
+total failures = 11
