@@ -43,7 +43,7 @@ delta_set = [1e-3, 1e-6, 1e-9, 0.0] # choice of perturbations
 subplot(121)
 for delta = delta_set
   build_LP() = build_toy(delta)
-  hist = IPOPT_solver_history(build_LP, solver_dic["Ipopt w/o perturb"])
+  hist, dual_dic = IPOPT_solver_history(build_LP, solver_dic["Ipopt w/o perturb"])
   dual_hist = OnePhase.get_col(hist, :y_norm)
 
   semilogy(1:length(dual_hist), dual_hist, color="black", linestyle=ls[delta], label="δ = $delta", basey=10)

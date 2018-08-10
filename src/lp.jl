@@ -208,12 +208,12 @@ function get_mult_inf_norm(inn::IpoptProblem)
     return max(norm(inn.mult_g,Inf),norm(inn.mult_x_L,Inf),norm(inn.mult_x_U,Inf))
 end
 
-function get_maximum_duals_at_last_iterate(solver_dic::Dict, problem_list::Array{String,1})
-    # generate distribution on the **maximum** dual multiplier values at the **last iterate**
-    solver_duals = Dict{String,Dict{String,Float64}}()
+function get_hist_at_last_iterate(solver_dic::Dict, problem_list::Array{String,1})
+    # get final state of algorithm
+    solver_hist = Dict{String,Dict{String,Array{OnePhase.abstract_alg_history,1}}}()
     for (solver_name,solver_info) in solver_dic
         print("Solving using $solver_name ... ")
-        solver_duals[solver_name] = Dict{String,Float64}()
+        solver_hist[solver_name] = OnePhase.abstract_alg_history()
 
         for problem_name in problem_list
           print(problem_name,", ")
@@ -222,20 +222,25 @@ function get_maximum_duals_at_last_iterate(solver_dic::Dict, problem_list::Array
           solver = build_solver(solver_info)
           setsolver(m, solver)
           status = solve(m)
-          solver_duals[solver_name][problem_name] = get_mult_inf_norm(m.internalModel.inner)
+
+          hist = Array{OnePhase.generic_alg_history,1}()
+          inner = m.internalModel.inner
+          add_solver_results!(hist, nlp, inner, k)
+          solver_hist[solver_name][problem_name] = hist
+          #get_mult_inf_norm(m.internalModel.inner)
         end
         println("")
     end
 
-    return solver_duals
+    return solver_hist
 end
 
-function get_maximum_duals_all_iterates(solver_dic::Dict, problem_list::Array{String,1}; frac::Float64=1.0)
-    # generate distribution on the **maximum** dual multiplier values at the **last iterate**
-    solver_duals = Dict{String,Dict{String,Float64}}()
+function get_hist_all_iterates(solver_dic::Dict, problem_list::Array{String,1}) #; frac::Float64=1.0)
+    # get history of iterates
+    solver_hist = Dict{String,Dict{String,Array{OnePhase.abstract_alg_history,1}}}()
 
     for (solver_name,solver_info) in solver_dic
-        solver_duals[solver_name] = Dict{String,Float64}()
+        solver_hist[solver_name] = Dict{String,Array{OnePhase.abstract_alg_history,1}}()
         print("Solving using $solver_name ... ")
         for problem_name in problem_list
           print(problem_name, ", ")
@@ -243,31 +248,50 @@ function get_maximum_duals_all_iterates(solver_dic::Dict, problem_list::Array{St
 
           if solver_info["solver"] == :Ipopt
               build_LP() = build_LP_model_as_NLP(LP)
-              hist = IPOPT_solver_history(build_LP, solver_info)
+              hist, status = IPOPT_solver_history(build_LP, solver_info)
           elseif solver_info["solver"] == :OnePhase
                 m = build_LP_model_as_NLP(LP)
                 solver = build_solver(solver_info)
                 setsolver(m, solver)
-                solve(m)
+                status = solve(m)
 
                 hist = OnePhase.major_its_only(m.internalModel.inner.hist)
           else
               @show solver_name, typeof(solver)
               error("Invalid solver_name")
           end
-          vals = OnePhase.get_col(hist,:y_norm)
-          if frac == 1.0
-              j = 1
-          elseif frac >= 0.0 && frac < 1.0
-              j = round(Int,ceil(length(vals) * (1.0-frac)))
-          else
-              error("Invalid value for variable 'frac' of $frac")
-          end
-          slice = vals[j:end]
-          solver_duals[solver_name][problem_name] = maximum(slice)
+          solver_hist[solver_name][problem_name] = hist
         end
         println("")
     end
 
+    return solver_hist
+end
+
+
+function get_solver_duals(hist_dic::Dict{String,Dict{String,Array{OnePhase.abstract_alg_history,1}}};frac::Float64=1.0)
+    solver_duals = Dict{String,Dict{String,Float64}}()
+
+    for (solver_name,solver_data) in hist_dic
+        solver_duals[solver_name] = Dict{String,Float64}()
+        for (problem_name,hist) in solver_data
+            vals = get_col(hist,:y_norm)
+            slice = slice_frac(vals,frac)
+            solver_duals[solver_name][problem_name] = maximum(slice)
+        end
+    end
+
     return solver_duals
+end
+
+function slice_frac(vals::Vector,frac::Float64)
+    if frac == 1.0
+        j = 1
+    elseif frac >= 0.0 && frac < 1.0
+        j = round(Int,ceil(length(vals) * (1.0-frac)))
+    else
+        error("Invalid value for variable 'frac' of $frac")
+    end
+    slice = vals[j:end]
+    return vals
 end

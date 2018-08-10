@@ -1,11 +1,16 @@
 println("loading libaries and functions ...")
 
-using JuMP, MAT, Ipopt, MathProgBase, NLPModels, CUTEst
+using JuMP, MAT, Ipopt, MathProgBase, NLPModels, CUTEst, DataFrames, CSV
 using Gurobi # to check if LP is feasible or not
 using Suppressor # to stop IPOPT showing a million warnings
 
-#using OnePhase
-include("../../../one-phase-2.0/src/OnePhase.jl")
+if ENV["USER"] == "Oliver" # me
+    # so I can work with the latest one-phase IPM
+    include("../../../one-phase-2.0/src/OnePhase.jl")
+else
+    # everyone else: download it from https://github.com/ohinder/OnePhase.jl
+    using OnePhase
+end
 include("lp.jl")
 include("plot.jl")
 
@@ -20,6 +25,9 @@ function build_solver(solver_info::Dict)
 end
 
 function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::AbstractNLPModel, inner, t::Int64)
+    # TODO
+    # check this carefully
+
     x = inner.x
     mult_x_L = inner.mult_x_L
     mult_x_U = inner.mult_x_U
@@ -33,8 +41,11 @@ function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::A
 
     g_val = cons(nlp, x)
     g_val = inner.g
-    # only seems to work with equality constraints with r.h.s of zero.
-    con_vio = max(maximum(g_val-nlp.meta.ucon),maximum(nlp.meta.lcon-g_val),0.0)
+    # TODO check carefully -- only seems to work with equality constraints with r.h.s of zero????
+    con_vio = max(maximum(g_val-nlp.meta.ucon),
+    maximum(nlp.meta.lcon-g_val),
+    maximum(nlp.meta.lvar - x),
+    maximum(x - nlp.meta.uvar),0.0)
     #@show nlp.meta.ucon, nlp.meta.lcon
     #@show x, nlp.meta.lvar, nlp.meta.uvar, mult_x_L, mult_x_U, mult_g
 
@@ -49,7 +60,11 @@ function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::A
 
     fval = obj(nlp,x)
 
-    this_it = OnePhase.generic_alg_history(t,fval,norm_grad_lag,comp,con_vio,con_vio,y_norm,x_norm)
+    s_U = nlp.meta.uvar - x
+    s_L = x - nlp.meta.lvar
+    strict_comp = min(minimum(mult_x_L + s_L),minimum(mult_x_U + s_U))
+
+    this_it = OnePhase.generic_alg_history(t,fval,norm_grad_lag,comp,con_vio,con_vio,y_norm,x_norm,strict_comp)
 
     push!(hist,this_it)
 end
@@ -61,6 +76,7 @@ end
 function IPOPT_solver_history(model_builder::Function, solver_info::Dict; print_level=0::Int64)
     temp_m = model_builder()
     nlp = NLPModels.MathProgNLPModel(temp_m)
+    status = NaN;
 
     hist = Array{OnePhase.generic_alg_history,1}()
     opts = solver_info["options"]
@@ -87,7 +103,7 @@ function IPOPT_solver_history(model_builder::Function, solver_info::Dict; print_
         status = solve(m)
     end
 
-    return hist
+    return hist,status
 end
 
 function IPOPT_solver_history(nlp::NLPModels.AbstractNLPModel, solver_info::Dict; print_level=0::Int64) #max_it::Int64; bound_relax_factor::Float64=0.0,tol::Float64=1e-8)
@@ -114,18 +130,20 @@ end
 
 function Record_solver_histories(solver_dic::Dict, build_nlp::Function)
     hist_dic = Dict{String,Array{OnePhase.abstract_alg_history,1}}()
+    status_dic = Dict{String,Symbol}()
     for (solver_name,solver_info) in solver_dic
         if solver_info["solver"] == :Ipopt
-            hist_dic[solver_name] = IPOPT_solver_history(build_nlp, solver_info);
+            hist_dic[solver_name], status_dic[solver_name] = IPOPT_solver_history(build_nlp, solver_info);
+
         elseif solver_info["solver"] == :OnePhase
             m = build_nlp()
             solver = build_solver(solver_info)
             setsolver(m,solver)
-            solve(m)
+            status_dic[solver_name] = solve(m)
             hist_dic[solver_name] = OnePhase.major_its_only(m.internalModel.inner.hist);
         else
             error("Unknown solver.")
         end
     end
-    return hist_dic
+    return hist_dic, status_dic
 end

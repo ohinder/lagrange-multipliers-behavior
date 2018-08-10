@@ -12,7 +12,7 @@ if !isdir("figures/") mkdir("figures/") end
 if !isdir("tables/") mkdir("tables/") end
 
 # keep the same for all solvers
-max_it = 3000;
+max_it = 300;
 tol = 1e-6;
 output_level=0
 
@@ -79,10 +79,12 @@ problem_name = "ADLITTLE" # which problem???
 LP = read_lp(problem_name,"../netlib"); # DOWNLOAD netlib LP problem
 build_LP() = build_LP_model_as_NLP(LP)
 
-hist_dic = Record_solver_histories(solver_dic, build_LP)
+example_hist_dic, example_status_dic = Record_solver_histories(solver_dic, build_LP);
 ylims = [10.0^(-8.0),10.0^(11.0)]
+df_netlib_example = Table_from_history(example_hist_dic,example_status_dic,display_order)
+CSV.write("tables/netlib_example_table.csv",df_netlib_example)
 fig = figure("Trajectory $problem_name",figsize=figsize)
-Plot_multiple_solver_dual_histories(hist_dic,ylims,display_order)
+Plot_multiple_solver_trajectories(example_hist_dic,ylims,display_order)
 PyPlot.savefig("figures/trajectory_$problem_name.pdf")
 PyPlot.close()
 
@@ -95,23 +97,36 @@ println("Computing Figure 4 (circle example) ")
 println("************************************************************************************")
 println("")
 
-function circle()
+function circle_eq()
     m = Model()
     @variable(m, x[1:2])
 
-    @NLobjective(m, Min, x[1])
+    @NLobjective(m, Min, -x[1]^2)
     @NLconstraint(m, x[1]^2 + x[2]^2 == 1.0)
     @NLconstraint(m, (x[1]-2.0)^2 + x[2]^2 == 1.0)
 
     return m
 end
 
-hist_dic = Record_solver_histories(solver_dic, circle)
-ylims = [1e-6,1e8]
+circle_hist_dic,circle_status_dic = Record_solver_histories(solver_dic, circle_eq);
+#drink_status_dic["Ipopt w. perturb"] = :eq_mult_error # for this problem Ipopt incorrectly declares optimality -- see console output
+#drink_status_dic["Ipopt w/o perturb"] = :eq_mult_error # for this problem Ipopt incorrectly declares optimality -- see console output
+
+ylims = [1e-6,1e10]
 fig = figure("Circle example",figsize=figsize)
-Plot_multiple_solver_dual_histories(hist_dic,ylims,display_order)
+Plot_multiple_solver_trajectories(circle_hist_dic,ylims,display_order)
 PyPlot.savefig("figures/circle.pdf")
 PyPlot.close()
+
+df_circle = Table_from_history(circle_hist_dic,circle_status_dic,display_order)
+CSV.write("tables/circle_table.csv",df_circle)
+
+# latex table (open file)
+latex_tbl = open("tables/latex_table.txt","w")
+latex_begin_tabular!(latex_tbl,df_circle)
+latex_begin_heading!(latex_tbl,"Optimization of circle")
+df_to_latex!(latex_tbl, df_circle)
+write(latex_tbl,"\\\\ \n")
 
 println("************************************************************************************")
 println("Computing Figure 5 (complementarity problem) ")
@@ -131,13 +146,35 @@ function simple_comp()
     return m
 end
 
-hist_dic = Record_solver_histories(solver_dic, simple_comp)
+function simple_comp_ipopt()
+    m = Model()
+    @variable(m, x[1:2] >= 0.0)
+    @variable(m, s[1:2] >= 0.0)
+
+    @objective(m, Min, 3 * x[1] + x[2])
+
+    @constraint(m, x[1] - 3.0 * x[2] - s[1] == 2.0)
+    @NLconstraint(m, x[1] * x[2] + s[2] == 0.0)
+
+    return m
+end
+
+comp_hist_dic, comp_status_dic = Record_solver_histories(solver_dic, simple_comp_ipopt);
 ylims = [1e-6,1e8]
 fig = figure("Complementarity example",figsize=figsize)
-Plot_multiple_solver_dual_histories(hist_dic,ylims,display_order)
-
+Plot_multiple_solver_trajectories(comp_hist_dic,ylims,display_order)
 PyPlot.savefig("figures/comp.pdf")
 PyPlot.close()
+
+df_comp = Table_from_history(comp_hist_dic,comp_status_dic,display_order)
+CSV.write("tables/comp_table.csv",df_comp)
+
+# latex table
+latex_begin_heading!(latex_tbl,"Linear program with complementarity constraints")
+df_to_latex!(latex_tbl,df_comp)
+write(latex_tbl,"\\\\ \n")
+
+
 
 println("************************************************************************************")
 println("Computing Figure 6 (drinking water problem)")
@@ -171,12 +208,24 @@ function build_drink()
     return m
 end
 
-hist_dic = Record_solver_histories(solver_dic, build_drink)
+drink_hist_dic, drink_status_dic = Record_solver_histories(solver_dic, build_drink);
+drink_status_dic["Ipopt w. perturb"] = :eq_mult_error # for this problem Ipopt incorrectly declares optimality -- see console output
+drink_status_dic["Ipopt w/o perturb"] = :eq_mult_error # for this problem Ipopt incorrectly declares optimality -- see console output
+
 ylims = [1e-6,1e10]
 fig = figure("Drink example",figsize=figsize)
 #add_duals_to!(df_duals,"Drink",hist_dic,:y_norm)
 #add_strict_comp_to!(df_comp,"Drink",hist_dic,:strict_comp)
-Plot_multiple_solver_dual_histories(hist_dic,ylims,display_order)
-#write.csv(df_duals)
+Plot_multiple_solver_trajectories(drink_hist_dic,ylims,display_order)
 PyPlot.savefig("figures/drink.pdf")
 PyPlot.close()
+
+df_drink = Table_from_history(drink_hist_dic,drink_status_dic,display_order)
+CSV.write("tables/drink_table.csv",df_drink)
+
+# latex table
+latex_begin_heading!(latex_tbl,"Drinking water")
+df_to_latex!(latex_tbl,df_drink)
+write(latex_tbl,"\\\\ \n \\bottomrule\n")
+latex_end_tabular!(latex_tbl)
+close(latex_tbl)

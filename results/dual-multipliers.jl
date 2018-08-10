@@ -1,4 +1,4 @@
-max_problem_size = 10000; # how big are the netlib problems we solve (make this small if its taking a long time)
+max_problem_size = 800; # how big are the netlib problems we solve (make this small if its taking a long time)
 
 println("Largest netlib problem we are going to solve (number of nonzeros): $max_problem_size")
 println("")
@@ -32,15 +32,9 @@ problems_where_all_solvers_succeed = all_solvers_succeed(solver_status_dic, prob
 all_solvers_succeed_and_no_int = intersect(problems_where_all_solvers_succeed,problems_with_no_int)
 all_solvers_succeed_and_int = intersect(problems_where_all_solvers_succeed,problems_with_int)
 
+#=
 println("Generate distribution on the maximum dual multiplier values over all iterates ...")
 solver_duals = get_maximum_duals_all_iterates(solver_dic, problems_where_all_solvers_succeed, frac=1.0)
-
-frac = 0.2
-println("Generate distribution on the maximum dual multiplier values over last $frac of iterates ...")
-solver_duals_20_percent = get_maximum_duals_all_iterates(solver_dic, problems_where_all_solvers_succeed,frac=frac)
-
-line_style = Dict("One Phase" => "--", "Ipopt w/o perturb" => "-", "Ipopt w. perturb" => "-.")
-
 println("Plotting results ...")
 Plot_duals(solver_duals,line_style)
 legend()
@@ -51,6 +45,16 @@ Plot_duals(solver_duals_20_percent,line_style)
 legend()
 PyPlot.savefig("figures/dual_distribution_20.pdf")
 PyPlot.close()
+=#
+println("pull out distribution of dual multiplers ...")
+netlib_hist_dic = get_hist_all_iterates(solver_dic, problems_where_all_solvers_succeed)
+frac = 0.2
+solver_duals_20_percent = get_solver_duals(netlib_hist_dic;frac=frac);
+
+#println("Generate distribution on the maximum dual multiplier values over last $frac of iterates ...")
+#solver_duals_20_percent = get_maximum_duals_all_iterates(solver_dic, problems_where_all_solvers_succeed,frac=frac)
+
+line_style = Dict("One Phase" => "--", "Ipopt w/o perturb" => "-", "Ipopt w. perturb" => "-.")
 
 function restrict_results(res::Dict{String,Dict{String,Float64}}, restricted_problem_list::Array{String,1})
     restricted_res = Dict{String,Dict{String,Float64}}()
