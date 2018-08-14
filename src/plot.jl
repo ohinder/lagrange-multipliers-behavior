@@ -82,6 +82,7 @@ function Table_from_history(hist_dic::Dict{String,Array{OnePhase.abstract_alg_hi
     strict_comp = Array{Float64,1}()
     primal_feas = Array{Float64,1}()
     status_list = Array{Symbol,1}()
+    dual_res = Array{Float64,1}()
     strict_comp = Array{Float64,1}()
     primal_res_ls = Array{Float64,1}()
     obj_val_ls = Array{Float64,1}()
@@ -99,6 +100,8 @@ function Table_from_history(hist_dic::Dict{String,Array{OnePhase.abstract_alg_hi
 
         push!(status_list,status_dic[solver_name])
 
+        push!(dual_res,OnePhase.get_col(hist,:norm_grad_lag)[end])
+
         primal_res = OnePhase.get_col(hist,:primal_residual)[end];
         push!(primal_res_ls,primal_res)
 
@@ -111,7 +114,8 @@ function Table_from_history(hist_dic::Dict{String,Array{OnePhase.abstract_alg_hi
         iterations=its,
         max_dual=max_dual,
         strict_comp=strict_comp,
-        status_list=status_list,
+        #status_list=status_list,
+        dual_res=dual_res,
         primal_res=primal_res_ls,
         fval=obj_val_ls
     )
@@ -143,11 +147,16 @@ function df_to_latex!(stream,df::DataFrame)
     for i in 1:size(df, 1)
         for j in 1:size(df,2)
             val = df[i,j]
-            if isa(val,Float64) && val > 0.0 && !isinf(val)
+            if isa(val,Float64) && val != 0.0 && !isinf(val)
+                neg = ""
+                if val < 0.0
+                    val = -val
+                    neg = "-"
+                end
                 pow = floor(Int,log(val)/log(10))
                 val = round(val / 10.0^pow,1)
                 if pow != 0.0
-                    write(stream,"\$ $val \\times 10\^\{$pow\} \$")
+                    write(stream,"\$ $(neg)$(val) \\times 10\^\{$pow\} \$")
                 else
                     write(stream,"\$ $val \$")
                 end

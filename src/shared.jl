@@ -41,13 +41,23 @@ function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::A
 
     g_val = cons(nlp, x)
     g_val = inner.g
+
+    s_U = nlp.meta.uvar - x
+    s_L = x - nlp.meta.lvar
+
+    lcon = nlp.meta.lcon
+    ucon = nlp.meta.ucon
+
+    for i = 1:length(lcon)
+        if lcon[i] != ucon[i] && !isinf(lcon[i]) && !isinf(ucon[i])
+            warn("Please. Write split inequalities so strict complementarity can be correctly computed. JuMP interface currently makes this difficult to do unless inequalities are split.")
+        end
+    end
+
+    r_U = ucon - g_val
+    r_L = g_val - lcon
     # TODO check carefully -- only seems to work with equality constraints with r.h.s of zero????
-    con_vio = max(maximum(g_val-nlp.meta.ucon),
-    maximum(nlp.meta.lcon-g_val),
-    maximum(nlp.meta.lvar - x),
-    maximum(x - nlp.meta.uvar),0.0)
-    #@show nlp.meta.ucon, nlp.meta.lcon
-    #@show x, nlp.meta.lvar, nlp.meta.uvar, mult_x_L, mult_x_U, mult_g
+    con_vio = max(maximum(-r_U),maximum(-r_L),maximum(-s_L),maximum(-s_U),0.0)
 
     # doesn't allow inequality constraints.
     comp_vec = [mult_x_L .* max.(0.0,x-nlp.meta.lvar); mult_x_U .* max.(0.0,nlp.meta.uvar-x)]
@@ -59,9 +69,8 @@ function add_solver_results!(hist::Array{OnePhase.generic_alg_history,1}, nlp::A
     min_comp = minimum(comp_vec)
 
     fval = obj(nlp,x)
-
-    s_U = nlp.meta.uvar - x
-    s_L = x - nlp.meta.lvar
+    strict_comp_r_U = (r_U + mult_g)[ucon .!= lcon]
+    strict_comp_r_L = (r_L + mult_g)[ucon .!= lcon]
     strict_comp = min(minimum(mult_x_L + s_L),minimum(mult_x_U + s_U))
 
     this_it = OnePhase.generic_alg_history(t,fval,norm_grad_lag,comp,con_vio,con_vio,y_norm,x_norm,strict_comp)
