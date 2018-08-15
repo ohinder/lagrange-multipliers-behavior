@@ -28,6 +28,12 @@ options_Ipopt_with_perturb = Dict(
     # turn off `acceptable' termination criteron in IPOPT
     :acceptable_iter=>99999,:acceptable_tol=>tol,:acceptable_compl_inf_tol=>tol,:acceptable_constr_viol_tol=>tol
 )
+
+options_OnePhase = Dict(
+    :term!max_it => max_it,
+    :output_level => output_level,
+    :term!tol_opt => tol
+);
 options_Ipopt_without_perturb = deepcopy(options_Ipopt_with_perturb)
 options_Ipopt_without_perturb[:bound_relax_factor] = 0.0 # this turns off perturbations of the constraints
 
@@ -35,7 +41,7 @@ options_Ipopt_without_perturb[:bound_relax_factor] = 0.0 # this turns off pertur
 solver_dic = Dict(
 "One Phase" => Dict(
     "solver" => :OnePhase,
-    "options" => Dict(:term!max_it => max_it, :output_level=>output_level),
+    "options" => options_OnePhase,
 ),
 "Ipopt w/o perturb" => Dict(
     "solver" => :Ipopt,
@@ -50,6 +56,27 @@ solver_dic = Dict(
 display_order = ["One Phase", "Ipopt w/o perturb", "Ipopt w. perturb"]
 
 figsize = (9,4);
+
+###############################
+## write the options to a file
+###############################
+function opts_to_df(dic::Dict) return DataFrame(option=collect(keys(dic)),value=collect(values(dic))) end
+
+df_options_OnePhase = opts_to_df(options_OnePhase)
+df_options_Ipopt_without_perturb = opts_to_df(options_Ipopt_without_perturb)
+df_options_Ipopt_with_perturb = opts_to_df(options_Ipopt_with_perturb)
+
+latex_tbl = open("tables/options_table.txt","w")
+latex_begin_tabular!(latex_tbl,df_options_OnePhase)
+latex_begin_heading!(latex_tbl,"Ipopt",2)
+df_to_latex!(latex_tbl, df_options_Ipopt_without_perturb)
+write(latex_tbl,"\\\\ \n")
+latex_begin_heading!(latex_tbl,"One Phase",2)
+df_to_latex!(latex_tbl, df_options_OnePhase)
+write(latex_tbl,"\\\\ \n")
+latex_end_tabular!(latex_tbl)
+close(latex_tbl)
+
 #####################
 ## Linear programs ##
 #####################
@@ -108,7 +135,19 @@ function circle_ineq()
     return m
 end
 
-circle_hist_dic,circle_status_dic = Record_solver_histories(solver_dic, circle_ineq);
+function circle_ineq_ipopt()
+    m = Model()
+    @variable(m, x[1:2])
+    @variable(m, s[1:2] >= 0.0)
+
+    @NLobjective(m, Min, -(x[1]-1.0)^2 + x[2]^2)
+    @NLconstraint(m, x[1]^2 + x[2]^2 + s[1] == 1.0)
+    @NLconstraint(m, (x[1]-2.0)^2 + x[2]^2 + s[2] == 1.0)
+
+    return m
+end
+
+circle_hist_dic,circle_status_dic = Record_solver_histories(solver_dic, circle_ineq, circle_ineq_ipopt);
 #drink_status_dic["Ipopt w. perturb"] = :eq_mult_error # for this problem Ipopt incorrectly declares optimality -- see console output
 #drink_status_dic["Ipopt w/o perturb"] = :eq_mult_error # for this problem Ipopt incorrectly declares optimality -- see console output
 
@@ -123,8 +162,9 @@ CSV.write("tables/circle_table.csv",df_circle)
 
 # latex table (open file)
 latex_tbl = open("tables/latex_table.txt","w")
+latex_ncol = length(names(df_circle))
 latex_begin_tabular!(latex_tbl,df_circle)
-latex_begin_heading!(latex_tbl,"Intersection of two circles")
+latex_begin_heading!(latex_tbl,"Intersection of two circles",latex_ncol)
 df_to_latex!(latex_tbl, df_circle)
 write(latex_tbl,"\\\\ \n")
 
@@ -146,7 +186,20 @@ function simple_comp()
     return m
 end
 
-comp_hist_dic, comp_status_dic = Record_solver_histories(solver_dic, simple_comp);
+function simple_comp_ipopt()
+    m = Model()
+    @variable(m, x[1:2] >= 0.0)
+    @variable(m, s[1:2] >= 0.0)
+
+    @objective(m, Min, 3 * x[1] + x[2])
+
+    @constraint(m, x[1] - 3.0 * x[2] - s[1] == 2.0)
+    @NLconstraint(m, x[1] * x[2] + s[2] == 0.0)
+
+    return m
+end
+
+comp_hist_dic, comp_status_dic = Record_solver_histories(solver_dic, simple_comp, simple_comp_ipopt);
 ylims = [1e-6,1e11]
 fig = figure("Complementarity example",figsize=figsize)
 Plot_multiple_solver_trajectories(comp_hist_dic,ylims,display_order)
@@ -157,7 +210,7 @@ df_comp = Table_from_history(comp_hist_dic,comp_status_dic,display_order)
 CSV.write("tables/comp_table.csv",df_comp)
 
 # latex table
-latex_begin_heading!(latex_tbl,"Linear program with complementarity constraints")
+latex_begin_heading!(latex_tbl,"Linear program with complementarity constraints",latex_ncol)
 df_to_latex!(latex_tbl,df_comp)
 write(latex_tbl,"\\\\ \n")
 
@@ -195,7 +248,7 @@ function build_drink()
     return m
 end
 
-drink_hist_dic, drink_status_dic = Record_solver_histories(solver_dic, build_drink);
+drink_hist_dic, drink_status_dic = Record_solver_histories(solver_dic, build_drink, build_drink);
 drink_status_dic["Ipopt w. perturb"] = :eq_mult_error # for this problem Ipopt incorrectly declares optimality -- see console output
 drink_status_dic["Ipopt w/o perturb"] = :eq_mult_error # for this problem Ipopt incorrectly declares optimality -- see console output
 
@@ -211,7 +264,7 @@ df_drink = Table_from_history(drink_hist_dic,drink_status_dic,display_order)
 CSV.write("tables/drink_table.csv",df_drink)
 
 # latex table
-latex_begin_heading!(latex_tbl,"Drinking water")
+latex_begin_heading!(latex_tbl,"Drinking water",latex_ncol)
 df_to_latex!(latex_tbl,df_drink)
 write(latex_tbl,"\\\\ \n \\bottomrule\n")
 latex_end_tabular!(latex_tbl)

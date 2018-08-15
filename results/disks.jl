@@ -11,7 +11,7 @@ nlp = CUTEstModel("DISCS")
 
 
 
-IPOPT_hist = IPOPT_solver_history(nlp, tmp_solver)
+cutest_IPOPT_hist, cutest_status_dic = IPOPT_solver_history(nlp, tmp_solver)
 
 my_pars = OnePhase.create_pars_JuMP(solver_dic["One Phase"].options)
 iter, status, full_OP_hist, t, err, timer = OnePhase.one_phase_solve(nlp,my_pars);

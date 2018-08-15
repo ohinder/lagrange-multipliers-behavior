@@ -1,5 +1,3 @@
-using PyPlot
-
 function Plot_duals(solver_duals::Dict{String,Dict{String,Float64}},ls::Dict{String,String}; ylim=false)
     for (label, data_dic) in solver_duals
         data = sort(collect(values(data_dic)))
@@ -21,7 +19,7 @@ function Plot_trajectory(hist; ylim=false)
     dual_res = OnePhase.get_col(hist,:norm_grad_lag)
     primal_res = OnePhase.get_col(hist,:primal_residual)
     y_norm = OnePhase.get_col(hist,:y_norm)
-    comp = OnePhase.get_col(hist,:comp)
+    sy_inf = OnePhase.get_col(hist,:sy_inf)
 
     label = ["dual residual" "primal residual" "dual variable" "complementarity"]
 
@@ -29,7 +27,7 @@ function Plot_trajectory(hist; ylim=false)
         "dual residual" => dual_res,
         "primal residual" => primal_res,
         "dual variable" => y_norm,
-        "complementarity" => comp
+        "complementarity" => sy_inf
     )
 
     line_style = Dict(
@@ -83,9 +81,9 @@ function Table_from_history(hist_dic::Dict{String,Array{OnePhase.abstract_alg_hi
     primal_feas = Array{Float64,1}()
     status_list = Array{Symbol,1}()
     dual_res = Array{Float64,1}()
-    strict_comp = Array{Float64,1}()
     primal_res_ls = Array{Float64,1}()
     obj_val_ls = Array{Float64,1}()
+    # add sy_inf???
 
     for solver_name in display_order
         hist = hist_dic[solver_name];
@@ -189,9 +187,9 @@ function latex_begin_tabular!(stream,df::DataFrame)
     write(stream,"\n")
 end
 
-function latex_begin_heading!(stream,heading::String)
+function latex_begin_heading!(stream,heading::String,ncol::Int64)
     write(stream, "\\bottomrule\n")
-    write(stream,"\\multicolumn\{7\}\{c\}\{$heading\} \\\\ \n")
+    write(stream,"\\multicolumn\{$ncol\}\{c\}\{$heading\} \\\\ \n")
 end
 
 function latex_end_tabular!(stream)
