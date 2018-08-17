@@ -275,23 +275,11 @@ function get_solver_duals(hist_dic::Dict{String,Dict{String,Array{OnePhase.abstr
     for (solver_name,solver_data) in hist_dic
         solver_duals[solver_name] = Dict{String,Float64}()
         for (problem_name,hist) in solver_data
-            vals = get_col(hist,:y_norm)
+            vals = OnePhase.get_col(hist,:y_norm)
             slice = slice_frac(vals,frac)
             solver_duals[solver_name][problem_name] = maximum(slice)
         end
     end
 
     return solver_duals
-end
-
-function slice_frac(vals::Vector,frac::Float64)
-    if frac == 1.0
-        j = 1
-    elseif frac >= 0.0 && frac < 1.0
-        j = round(Int,ceil(length(vals) * (1.0-frac)))
-    else
-        error("Invalid value for variable 'frac' of $frac")
-    end
-    slice = vals[j:end]
-    return vals
 end

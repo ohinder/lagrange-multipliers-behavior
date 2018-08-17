@@ -3,3 +3,13 @@ JuMP
 PyPlot
 advanced_timer
 OnePhase
+MAT
+Ipopt
+MathProgBase
+NLPModels
+CUTEst
+DataFrames
+CSV
+PyPlot
+Gurobi
+Suppressor

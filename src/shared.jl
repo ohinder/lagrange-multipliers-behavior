@@ -170,3 +170,15 @@ function Record_solver_histories(solver_dic::Dict, build_nlp_OnePhase::Function,
     end
     return hist_dic, status_dic
 end
+
+function slice_frac(vals::Vector,frac::Float64)
+    if frac == 1.0
+        j = 1
+    elseif frac >= 0.0 && frac < 1.0
+        j = round(Int,ceil(length(vals) * (1.0-frac)))
+    else
+        error("Invalid value for variable 'frac' of $frac")
+    end
+    slice = vals[j:end]
+    return slice
+end

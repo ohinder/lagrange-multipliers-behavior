@@ -78,6 +78,7 @@ function Table_from_history(hist_dic::Dict{String,Array{OnePhase.abstract_alg_hi
     its = Array{Int64,1}()
     max_dual = Array{Float64,1}()
     strict_comp = Array{Float64,1}()
+    max_comp = Array{Float64,1}()
     primal_feas = Array{Float64,1}()
     status_list = Array{Symbol,1}()
     dual_res = Array{Float64,1}()
@@ -96,6 +97,8 @@ function Table_from_history(hist_dic::Dict{String,Array{OnePhase.abstract_alg_hi
         strict_comp_hist = OnePhase.get_col(hist,:strict_comp);
         push!(strict_comp,minimum(slice_frac(strict_comp_hist,frac)))
 
+        push!(max_comp,OnePhase.get_col(hist,:sy_inf)[end])
+
         push!(status_list,status_dic[solver_name])
 
         push!(dual_res,OnePhase.get_col(hist,:norm_grad_lag)[end])
@@ -111,11 +114,13 @@ function Table_from_history(hist_dic::Dict{String,Array{OnePhase.abstract_alg_hi
         solvers=display_order,
         iterations=its,
         max_dual=max_dual,
-        strict_comp=strict_comp,
+        strict_complementarity=strict_comp
+        #,
         #status_list=status_list,
-        dual_res=dual_res,
-        primal_res=primal_res_ls,
-        fval=obj_val_ls
+        #max_comp=max_comp,
+        #dual_res=dual_res,
+        #primal_res=primal_res_ls,
+        #fval=obj_val_ls
     )
 
     return df

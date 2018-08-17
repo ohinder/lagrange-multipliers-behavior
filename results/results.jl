@@ -82,12 +82,6 @@ close(latex_tbl)
 #####################
 
 println("************************************************************************************")
-println("Computing Figure 1 (toy linear program) ")
-println("************************************************************************************")
-println("")
-include("toy_lp.jl")
-
-println("************************************************************************************")
 println("Computing Figure 3 (Comparision of dual multipliers on netlib)")
 println("************************************************************************************")
 println("")
@@ -99,19 +93,32 @@ solver_dic["Ipopt w/o perturb"]["options"][:print_level] = 5;
 solver_dic["Ipopt w. perturb"]["options"][:print_level] = 5;
 
 println("************************************************************************************")
+println("Computing Figure 1 (toy linear program) ")
+println("************************************************************************************")
+println("")
+include("toy_lp.jl")
+
+println("************************************************************************************")
 println("Computing Figure 2 (sample netlib problem) ")
 println("************************************************************************************")
 println("")
 problem_name = "ADLITTLE" # which problem???
+#problem_name = "ISRAEL" # which problem???
 LP = read_lp(problem_name,"../netlib"); # DOWNLOAD netlib LP problem
 build_LP() = build_LP_model_as_NLP(LP)
 
-example_hist_dic, example_status_dic = Record_solver_histories(solver_dic, build_LP);
-ylims = [10.0^(-8.0),10.0^(11.0)]
-df_netlib_example = Table_from_history(example_hist_dic,example_status_dic,display_order)
+example_hist_dic, example_status_dic = Record_solver_histories(solver_dic, build_LP, build_LP);
+ylims = [10.0^(-8.0),10.0^(12.0)]
+df_netlib_example = Table_from_history(example_hist_dic,example_status_dic,display_order,frac=0.2)
 CSV.write("tables/netlib_example_table.csv",df_netlib_example)
 fig = figure("Trajectory $problem_name",figsize=figsize)
 Plot_multiple_solver_trajectories(example_hist_dic,ylims,display_order)
+
+for i = 1:3
+    println("Duals for ",display_order[i], " are")
+    println(OnePhase.get_col(example_hist_dic[display_order[i]],:y_norm))
+end
+
 PyPlot.savefig("figures/trajectory_$problem_name.pdf")
 PyPlot.close()
 
@@ -157,7 +164,7 @@ Plot_multiple_solver_trajectories(circle_hist_dic,ylims,display_order)
 PyPlot.savefig("figures/circle.pdf")
 PyPlot.close()
 
-df_circle = Table_from_history(circle_hist_dic,circle_status_dic,display_order)
+df_circle = Table_from_history(circle_hist_dic,circle_status_dic,display_order,frac=0.2)
 CSV.write("tables/circle_table.csv",df_circle)
 
 # latex table (open file)
@@ -206,7 +213,7 @@ Plot_multiple_solver_trajectories(comp_hist_dic,ylims,display_order)
 PyPlot.savefig("figures/comp.pdf")
 PyPlot.close()
 
-df_comp = Table_from_history(comp_hist_dic,comp_status_dic,display_order)
+df_comp = Table_from_history(comp_hist_dic,comp_status_dic,display_order,frac=0.2)
 CSV.write("tables/comp_table.csv",df_comp)
 
 # latex table
@@ -260,11 +267,11 @@ Plot_multiple_solver_trajectories(drink_hist_dic,ylims,display_order)
 PyPlot.savefig("figures/drink.pdf")
 PyPlot.close()
 
-df_drink = Table_from_history(drink_hist_dic,drink_status_dic,display_order)
+df_drink = Table_from_history(drink_hist_dic,drink_status_dic,display_order,frac=0.2)
 CSV.write("tables/drink_table.csv",df_drink)
 
 # latex table
-latex_begin_heading!(latex_tbl,"Drinking water",latex_ncol)
+latex_begin_heading!(latex_tbl,"Drinking water network optimization",latex_ncol)
 df_to_latex!(latex_tbl,df_drink)
 write(latex_tbl,"\\\\ \n \\bottomrule\n")
 latex_end_tabular!(latex_tbl)

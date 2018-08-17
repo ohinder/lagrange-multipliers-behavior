@@ -1,4 +1,4 @@
-max_problem_size = 800; # how big are the netlib problems we solve (make this small if its taking a long time)
+max_problem_size = 10000; # how big are the netlib problems we solve (make this small if its taking a long time)
 
 println("Largest netlib problem we are going to solve (number of nonzeros): $max_problem_size")
 println("")
@@ -76,7 +76,7 @@ solver_duals_20_percent_no_int = restrict_results(solver_duals_20_percent,all_so
 solver_duals_20_percent_int = restrict_results(solver_duals_20_percent,all_solvers_succeed_and_int)
 
 # plot for paper
-ylims = [1.0,1e12]
+ylims = [1.0,1e13]
 fig = figure("Dual multipliers",figsize=figsize)
 subplot(1,2,1)
 title("Problems with interior")
