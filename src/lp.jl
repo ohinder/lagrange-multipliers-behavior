@@ -223,7 +223,7 @@ function get_hist_at_last_iterate(solver_dic::Dict, problem_list::Array{String,1
           setsolver(m, solver)
           status = solve(m)
 
-          hist = Array{ipopt_alg_history,1}()
+          hist = Array{OnePhase.abstract_alg_history,1}()
           inner = m.internalModel.inner
           add_solver_results!(hist, nlp, inner, k)
           solver_hist[solver_name][problem_name] = hist

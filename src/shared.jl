@@ -1,6 +1,7 @@
 println("loading libaries and functions ...")
 
 using JuMP, MAT, Ipopt, MathProgBase, NLPModels, CUTEst, DataFrames, CSV, PyPlot
+using NLPModelsJuMP
 using Gurobi # to check if LP is feasible or not
 using Suppressor # to stop IPOPT showing a million warnings
 
@@ -18,13 +19,14 @@ function build_solver(solver_info::Dict)
     if solver_info["solver"] == :OnePhase
         return OnePhase.OnePhaseSolver(solver_info["options"])
     elseif solver_info["solver"] == :Ipopt
-        return IpoptSolver(solver_info["options"])
+        tuples = [(key,val) for (key,val) in solver_info["options"]]
+        return IpoptSolver(tuples)
     else
         error("Unknown solver.")
     end
 end
 
-struct ipopt_alg_history <: OnePhase.abstract_alg_history
+mutable struct ipopt_alg_history <: OnePhase.abstract_alg_history
     t::Int64
     #mu::Float64
     fval::Float64
@@ -98,7 +100,7 @@ end
 
 function IPOPT_solver_history(model_builder::Function, solver_info::Dict; print_level=0::Int64)
     temp_m = model_builder()
-    nlp = NLPModels.MathProgNLPModel(temp_m)
+    nlp = MathProgNLPModel(temp_m)
     status = NaN;
 
     hist = Array{ipopt_alg_history,1}()

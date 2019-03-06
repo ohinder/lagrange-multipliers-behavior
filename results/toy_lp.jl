@@ -43,9 +43,18 @@ end=#
 
 #build_toy = build_toy2; # which model should we use.
 
-ls = Dict(1e-2 => ":", 1e-5 => "--", 1e-8 => "-.", 0.0 => "-") # line styles for plot
+#ls = Dict(1e-2 => ":", 1e-5 => "--", 1e-8 => "-.", 0.0 => "-") # line styles for plot
+ls = Dict(1e-3 => ":", 1e-5 => "--", 1e-8 => "-.", 0.0 => "-") # line styles for plot
+
 ylims = [1e-6, 1e10] # y-axis maximum and min value
 delta_set = sort(collect(keys(ls))) # choice of perturbations
+perturb_well_behaved = true # should i perturb
+
+####################################
+####################################
+####### MAX DUAL
+####################################
+####################################
 
 ###########
 ## IPOPT ##
@@ -56,6 +65,8 @@ for delta = delta_set
   build_LP() = build_toy_ipopt(delta)
   hist, dual_dic = IPOPT_solver_history(build_LP, solver_dic["Ipopt w/o perturb"])
   dual_hist = OnePhase.get_col(hist, :y_norm)
+  #strict_hist = OnePhase.get_col(hist, :strict_comp)
+  #@show strict_hist
   @show delta
   @show dual_hist
 
@@ -75,7 +86,13 @@ legend()
 ###############
 subplot(122)
 println("OnePhase dual history ...")
-for delta = delta_set
+hist = nothing
+if perturb_well_behaved
+    OP_delta_set = delta_set
+else
+    OP_delta_set = delta_set_zero
+end
+for delta = OP_delta_set
   m = build_toy(delta)
   #m = confused(delta)
   setsolver(m,build_solver(solver_dic["One Phase"]))
@@ -94,5 +111,70 @@ ax = gca()
 ax[:set_ylim](ylims)
 
 PyPlot.savefig("figures/toy_lp.pdf")
+
+PyPlot.close()
+
+
+####################################
+####################################
+####### STRICT COMP
+####################################
+####################################
+
+############
+## IPOPT  ##
+############
+subplot(121)
+println("IPOPT strict comp history ...")
+for delta = delta_set
+  build_LP() = build_toy_ipopt(delta)
+  hist, dual_dic = IPOPT_solver_history(build_LP, solver_dic["Ipopt w/o perturb"])
+  #dual_hist = OnePhase.get_col(hist, :y_norm)
+  strict_hist = OnePhase.get_col(hist, :strict_comp)
+  @show strict_hist
+  @show delta
+
+  semilogy(1:length(strict_hist), strict_hist, color="black", linestyle=ls[delta], label="δ = $delta", basey=10)
+end
+
+title("IPOPT")
+ax = gca()
+ax[:set_ylim](ylims)
+xlabel("iteration")
+ylabel("strict comp")
+
+legend()
+
+###############
+## one-phase ##
+###############
+subplot(122)
+println("OnePhase dual history ...")
+hist = nothing
+if perturb_well_behaved
+    OP_delta_set = delta_set
+else
+    OP_delta_set = delta_set_zero
+end
+
+for delta = OP_delta_set
+  m = build_toy(delta)
+  #m = confused(delta)
+  setsolver(m,build_solver(solver_dic["One Phase"]))
+  status = solve(m)
+  hist = OnePhase.major_its_only(m.internalModel.inner.hist)
+  strict_hist = OnePhase.get_col(hist, :strict_comp)
+  @show delta
+  @show strict_hist
+
+  semilogy(1:length(strict_hist), strict_hist, color="black", linestyle=ls[delta], label="δ = $delta", basey=10)
+end
+
+title("Well behaved IPM")
+xlabel("iteration")
+ax = gca()
+ax[:set_ylim](ylims)
+
+PyPlot.savefig("figures/toy_lp2.pdf")
 
 PyPlot.close()

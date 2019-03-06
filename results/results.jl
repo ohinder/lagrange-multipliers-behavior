@@ -25,6 +25,7 @@ options_Ipopt_with_perturb = Dict(
     :tol=>tol, # termination tolerance
     :print_level=>2+output_level,
     :max_iter => max_it,
+    #:nlp_scaling_method => "none",
     # turn off `acceptable' termination criteron in IPOPT
     :acceptable_iter=>99999,:acceptable_tol=>tol,:acceptable_compl_inf_tol=>tol,:acceptable_constr_viol_tol=>tol
 )
@@ -102,8 +103,10 @@ println("***********************************************************************
 println("Computing Figure 2 (sample netlib problem) ")
 println("************************************************************************************")
 println("")
-problem_name = "ADLITTLE" # which problem???
+#problem_name = "ADLITTLE" # which problem???
 #problem_name = "ISRAEL" # which problem???
+problem_name = "BANDM" # which problem???
+
 LP = read_lp(problem_name,"../netlib"); # DOWNLOAD netlib LP problem
 build_LP() = build_LP_model_as_NLP(LP)
 
